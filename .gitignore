@@ -1,0 +1,28 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Playwright reports and artifacts
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Testing and coverage
+coverage/
+*.lcov
+
+# Debugging and scratch files
+scratch/
+.tempmediaStorage/
+*.log
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db

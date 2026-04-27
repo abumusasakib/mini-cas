@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini CAS | Symbolic Math Engine</title>
+    <meta name="description" content="A mini Computer Algebra System engine with symbolic differentiation and XAI tracing.">
+    <link rel="stylesheet" href="style.css">
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mini CAS</h1>
+            <p class="subtitle">A lightweight symbolic math engine built with JS Dispatchers</p>
+        </header>
+
+        <main>
+            <section class="calculator-card">
+                <div class="input-group">
+                    <input type="text" id="expression-input" placeholder="Enter expression (e.g., sqrt(16) + 3*2)" autofocus>
+                    <button id="calculate-btn">Calculate</button>
+                </div>
+
+                <div class="examples">
+                    <div class="example-chip" onclick="setInput('sqrt(16) + 3 * (2 + 1)')">sqrt(16) + 3 * (2+1)</div>
+                    <div class="example-chip" onclick="setInput('2pi')">Implicit: 2pi</div>
+                    <div class="example-chip" onclick="setInput('x = 5')">Variable: x = 5</div>
+                    <div class="example-chip" onclick="setInput('f(x) = x^2 + 1')">Function: f(x) = x^2+1</div>
+                    <div class="example-chip" onclick="setInput('diff(x^3 + x, x)')">Symbolic: diff(x^3, x)</div>
+                    <div class="example-chip" onclick="setInput('simplify(x + x + 0)')">Simplify: x+x+0</div>
+                    <div class="example-chip" onclick="setInput('[[1,2],[3,4]] * [[5,6],[7,8]]')">Matrix: A * B</div>
+                    <div class="example-chip" onclick="setInput('det([[1,2],[3,4]])')">Det: det(M)</div>
+                    <div class="example-chip" onclick="setInput('rref([[1,2,3],[4,5,6]])')">RREF: rref(M)</div>
+                    <div class="example-chip" onclick="setInput('lu([[1,2],[3,4]])')">LU: lu(M)</div>
+                    <div class="example-chip" onclick="setInput('qr([[1,2],[3,4]])')">QR: qr(M)</div>
+                    <div class="example-chip" onclick="setInput('eig([[1,2],[3,4]])')">Eigen: eig(M)</div>
+                    <div class="example-chip" onclick="setInput('inv([[1,2],[3,4]])')">Inv: inv(M)</div>
+                    <div class="example-chip" onclick="setInput('trans([[1,2,3],[4,5,6]])')">Trans: trans(M)</div>
+                </div>
+
+                <div id="result-container" class="result-section" style="display: none;">
+                    <div class="result-label">Pretty-Printed Result</div>
+                    <div id="latex-display" style="margin-bottom: 1rem;"></div>
+                    <div class="result-label">Raw Output</div>
+                    <div id="result-value" class="result-value"></div>
+                    <div id="error-message" class="error-message"></div>
+                </div>
+
+                <div id="trace-container" class="trace-section" style="display: none;">
+                    <div class="trace-title" onclick="toggleTrace()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                        XAI Reasoning Trace
+                    </div>
+                    <div id="trace-list" class="trace-list"></div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p style="text-align: center; color: var(--text-secondary); font-size: 0.8rem; margin-top: 2rem;">
+                Built for GitHub Pages | Powered by Agentic JS
+            </p>
+        </footer>
+    </div>
+
+    <script src="cas.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
