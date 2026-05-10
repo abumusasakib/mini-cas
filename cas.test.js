@@ -59,6 +59,14 @@ describe('Mini CAS Engine - Consolidated Test Suite', () => {
             expect(res).toContain("U = [[1, 2], [0, -2]]");
         });
 
+        test('LU Factorization 3x3: lu([[2,3,5],[1,6,7],[4,1,3]])', () => {
+            const { result, resultLatex } = calculate("lu([[2,3,5],[1,6,7],[4,1,3]])");
+            expect(result).toContain("L = [[1, 0, 0], [0.5, 1, 0], [2, -1.1111111111111112, 1]]");
+            expect(result).toContain("U = [[2, 3, 5], [0, 4.5, 4.5], [0, 0, -2]]");
+            expect(resultLatex).toContain("\\begin{pmatrix} 1 & 0 & 0 \\\\ 0.5 & 1 & 0 \\\\ 2 & -1.1111111111111112 & 1 \\end{pmatrix}");
+            expect(resultLatex).toContain("\\text{L =}");
+        });
+
         test('QR Decomposition output formatting', () => {
             const res = calculate("qr([[1,2],[3,4]])").result;
             expect(res).toContain("Q = [[0.316");

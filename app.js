@@ -50,25 +50,41 @@ function handleCalculate() {
         display.innerHTML = '<div id="input-math"></div><div id="result-math"></div>';
         
         if (inputLatex) {
-            katex.render(inputLatex + " =", document.getElementById('input-math'), {
-                throwOnError: false,
-                displayMode: true
-            });
+            try {
+                katex.render(inputLatex + " =", document.getElementById('input-math'), {
+                    throwOnError: false
+                });
+            } catch (e) {
+                console.error("KaTeX Input Render Error:", e);
+                document.getElementById('input-math').textContent = inputLatex + " =";
+            }
         }
         if (resultLatex) {
-            katex.render(resultLatex, document.getElementById('result-math'), {
-                throwOnError: false,
-                displayMode: true
-            });
+            try {
+                katex.render(resultLatex, document.getElementById('result-math'), {
+                    throwOnError: false
+                });
+            } catch (e) {
+                console.error("KaTeX Result Render Error:", e);
+                document.getElementById('result-math').textContent = resultLatex;
+            }
         }
         // Handle trace
         if (trace && trace.length > 0) {
             traceContainer.style.display = 'block';
-            traceList.innerHTML = trace.map(step => `
-                <div class="trace-item">
-                    ${step.replace(/Variable|Assign|Operation|Function|Lookup/g, match => `<span>${match}</span>`)}
-                </div>
-            `).join('');
+            traceList.innerHTML = trace.map(step => {
+                let s = step;
+                s = s.replace(/Rule:/g, '<span class="trace-tag rule">Rule</span>');
+                s = s.replace(/Step:/g, '<span class="trace-tag step">Step</span>');
+                s = s.replace(/Algo:/g, '<span class="trace-tag algo">Algo</span>');
+                s = s.replace(/Pivot:/g, '<span class="trace-tag pivot">Pivot</span>');
+                s = s.replace(/Variable/g, '<span class="trace-tag var">Variable</span>');
+                s = s.replace(/Assign/g, '<span class="trace-tag assign">Assign</span>');
+                s = s.replace(/Operation/g, '<span class="trace-tag op">Operation</span>');
+                s = s.replace(/Function/g, '<span class="trace-tag func">Function</span>');
+                s = s.replace(/Lookup/g, '<span class="trace-tag lookup">Lookup</span>');
+                return `<div class="trace-item">${s}</div>`;
+            }).join('');
         } else {
             traceContainer.style.display = 'none';
         }

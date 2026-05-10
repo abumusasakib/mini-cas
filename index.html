@@ -31,7 +31,8 @@
                     <div class="example-chip" onclick="setInput('f(x) = x^2 + 1')">Function: f(x) = x^2+1</div>
                     <div class="example-chip" onclick="setInput('diff(x^3 + x, x)')">Symbolic: diff(x^3, x)</div>
                     <div class="example-chip" onclick="setInput('simplify(x + x + 0)')">Simplify: x+x+0</div>
-                    <div class="example-chip" onclick="setInput('[[1,2],[3,4]] * [[5,6],[7,8]]')">Matrix: A * B</div>
+                    <div class="example-chip" onclick="setInput('[[1,2],[3,4]]^3')">Power: M^n</div>
+                    <div class="example-chip" onclick="setInput('mul([[1,2],[3,4]], [[5,6],[7,8]])')">Mul: mul(A, B)</div>
                     <div class="example-chip" onclick="setInput('det([[1,2],[3,4]])')">Det: det(M)</div>
                     <div class="example-chip" onclick="setInput('rref([[1,2,3],[4,5,6]])')">RREF: rref(M)</div>
                     <div class="example-chip" onclick="setInput('lu([[1,2],[3,4]])')">LU: lu(M)</div>
@@ -55,6 +56,45 @@
                         XAI Reasoning Trace
                     </div>
                     <div id="trace-list" class="trace-list"></div>
+                </div>
+            </section>
+
+            <section class="guide-section">
+                <h2 class="guide-title">Mathematical Engine Guide</h2>
+                
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-icon">Σ</div>
+                        <h3>Symbolic Algebra</h3>
+                        <p>The engine uses a <strong>Dispatcher Kernel</strong> to route operations based on data types. It supports:</p>
+                        <ul>
+                            <li><strong>Implicit Multiplication:</strong> Auto-detection of multiplication in terms like <code>2x</code> or <code>3(y+1)</code>.</li>
+                            <li><strong>Complex Numbers:</strong> Native support for imaginary units (e.g., <code>3 + 4i</code>).</li>
+                            <li><strong>Simplification:</strong> Algebraic reduction of terms (e.g., <code>x + x + 0</code> becomes <code>2x</code>).</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-icon">∫</div>
+                        <h3>Symbolic Calculus</h3>
+                        <p>Mini CAS performs exact symbolic differentiation using recursive rule application:</p>
+                        <ul>
+                            <li><strong>Power Rule:</strong> $\frac{d}{dx} x^n = n x^{n-1}$.</li>
+                            <li><strong>Product Rule:</strong> $(fg)' = f'g + fg'$.</li>
+                            <li><strong>Sum/Diff Rules:</strong> Linear application across additive terms.</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-icon">⊞</div>
+                        <h3>Linear Algebra</h3>
+                        <p>High-performance matrix decomposition and transformation algorithms:</p>
+                        <ul>
+                            <li><strong>LU Decomposition:</strong> Factors $A = LU$ for solving systems and computing determinants.</li>
+                            <li><strong>QR Decomposition:</strong> Gram-Schmidt process for orthogonalization ($A = QR$).</li>
+                            <li><strong>Eigenvalues:</strong> Computed via the iterative <strong>QR Algorithm</strong> for spectral analysis.</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
         </main>

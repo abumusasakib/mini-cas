@@ -172,9 +172,23 @@ button:active {
     border-bottom: none;
 }
 
-.trace-item span {
-    color: var(--accent);
+.trace-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
 }
+.trace-tag.var { background: rgba(56, 189, 248, 0.1); color: var(--primary); }
+.trace-tag.assign { background: rgba(129, 140, 248, 0.1); color: var(--secondary); }
+.trace-tag.op { background: rgba(244, 114, 182, 0.1); color: var(--accent); }
+.trace-tag.func { background: rgba(167, 139, 250, 0.1); color: #a78bfa; }
+.trace-tag.lookup { background: rgba(251, 191, 36, 0.1); color: #fbbf24; }
+.trace-tag.rule { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.trace-tag.step { background: rgba(107, 114, 128, 0.1); color: #9ca3af; }
+.trace-tag.algo { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.trace-tag.pivot { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 
 .examples {
     display: grid;
@@ -248,8 +262,9 @@ button:active {
     width: 100%;
     display: flex;
     justify-content: center;
-    min-width: max-content;
-    padding: 0 1rem; /* Add side padding for scroll breathing room */
+    align-items: center;
+    min-height: 3rem;
+    padding: 0.5rem 1rem;
 }
 
 #latex-display::-webkit-scrollbar {
@@ -262,3 +277,125 @@ button:active {
 }
 #input-math { color: var(--text-secondary); font-size: 1.2rem; }
 #result-math { color: var(--primary); font-size: 1.8rem; font-weight: 600; }
+
+/* Guide Section */
+.guide-section {
+    margin-top: 4rem;
+    padding: 2rem 0;
+}
+
+.guide-title {
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 3rem;
+    position: relative;
+}
+
+.guide-title::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    border-radius: 2px;
+}
+
+.guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}
+
+.guide-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+}
+
+.guide-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(56, 189, 248, 0.3);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.guide-icon {
+    width: 50px;
+    height: 50px;
+    background: rgba(56, 189, 248, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+}
+
+.guide-card h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+}
+
+.guide-card p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.guide-card ul {
+    list-style: none;
+}
+
+.guide-card li {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.8rem;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.guide-card li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--secondary);
+}
+
+.guide-card strong {
+    color: var(--primary);
+}
+
+.guide-card code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--accent);
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 1rem;
+    }
+    
+    h1 {
+        font-size: 2.2rem;
+    }
+    
+    .calculator-card {
+        padding: 1.5rem;
+    }
+}

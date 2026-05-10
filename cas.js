@@ -19,9 +19,35 @@ class Matrix {
     constructor(data) {
         this.data = data;
     }
+    get rows() { return this.data.length; }
+    get cols() { return this.data[0].length; }
     toString() {
         return `[${this.data.map(row => `[${row.join(", ")}]`).join(", ")}]`;
     }
+}
+
+function multiplyMatricesInternal(a, b, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
+    const A = a.data;
+    const B = b.data;
+    if (A[0].length !== B.length) throw new Error("Matrix dimensions mismatch for multiplication");
+    
+    log(`Algo: Multiplying ${a.rows}x${a.cols} by ${b.rows}x${b.cols} matrix`);
+    const res = Array(A.length).fill(0).map(() => Array(B[0].length).fill(0));
+    for (let i = 0; i < A.length; i++) {
+        for (let j = 0; j < B[0].length; j++) {
+            let sum = 0;
+            let terms = [];
+            for (let k = 0; k < B.length; k++) {
+                const prod = A[i][k] * B[k][j];
+                sum += prod;
+                terms.push(`${A[i][k]}*${B[k][j]}`);
+            }
+            res[i][j] = sum;
+            log(`Step: Cell (${i},${j}) = ${terms.join(" + ")} = ${sum}`);
+        }
+    }
+    return new Matrix(res);
 }
 
 const ENV = {
@@ -36,7 +62,7 @@ const ENV = {
  * The core dispatcher kernel.
  * Routes operations based on types and arity.
  */
-function Un(a, op, b) {
+function Un(a, op, b, trace = []) {
     // 1. COMPLEX NUMBERS
     if (a instanceof Complex || b instanceof Complex) {
         const cA = a instanceof Complex ? a : new Complex(a, 0);
@@ -69,19 +95,7 @@ function Un(a, op, b) {
             return new Matrix(a.data.map((r, i) => r.map((v, j) => v - b.data[i][j])));
         }
         if (op === "*") {
-            // Matrix Multiplication
-            const A = a.data;
-            const B = b.data;
-            if (A[0].length !== B.length) throw new Error("Matrix dimensions mismatch for multiplication");
-            const res = Array(A.length).fill(0).map(() => Array(B[0].length).fill(0));
-            for (let i = 0; i < A.length; i++) {
-                for (let j = 0; j < B[0].length; j++) {
-                    for (let k = 0; k < B.length; k++) {
-                        res[i][j] += A[i][k] * B[k][j];
-                    }
-                }
-            }
-            return new Matrix(res);
+            return multiplyMatricesInternal(a, b, trace);
         }
     }
 
@@ -92,7 +106,23 @@ function Un(a, op, b) {
     if (typeof a === "number" && b instanceof Matrix && op === "*") {
         return new Matrix(b.data.map(r => r.map(v => v * a)));
     }
-
+    // Matrix ^ Number (Power)
+    if (a instanceof Matrix && typeof b === "number" && op === "^") {
+        if (a.rows !== a.cols) throw new Error("Matrix power is only defined for square matrices");
+        if (!Number.isInteger(b) || b < 0) throw new Error("Matrix power only supports non-negative integers");
+        
+        if (b === 0) return new Matrix(identity(a.rows));
+        
+        let res = a;
+        const log = (msg) => trace.push(`Step: ${msg}`);
+        log(`Algo: Raising matrix to power ${b}`);
+        for (let i = 1; i < b; i++) {
+            // Pass trace only for the first step or small powers to balance detail and performance
+            const iterTrace = (i === 1) ? trace : [];
+            res = multiplyMatricesInternal(res, a, iterTrace);
+        }
+        return res;
+    }
     // 3. SCALAR MATH
     if (typeof a === "number" && typeof b === "number") {
         switch (op) {
@@ -109,9 +139,10 @@ function Un(a, op, b) {
     if (op === "sin") return Math.sin(a);
     if (op === "cos") return Math.cos(a);
     if (op === "tan") return Math.tan(a);
-    if (op === "abs") return Math.abs(a);
+    if (op === "log") return Math.log(a);
+    if (op === "exp") return Math.exp(a);
 
-    throw new Error(`Unsupported operation: ${a} ${op} ${b}`);
+    throw new Error(`Operation ${op} not supported for these types`);
 }
 
 /**
@@ -293,7 +324,7 @@ function evaluate(node, trace = []) {
         case "Binary": {
             const left = evaluate(node.left, trace);
             const right = evaluate(node.right, trace);
-            const result = Un(left, node.op, right);
+            const result = Un(left, node.op, right, trace);
             log(`Operation: ${left} ${node.op} ${right} = ${result}`);
             return result;
         }
@@ -313,41 +344,48 @@ function evaluate(node, trace = []) {
         case "Call": {
             // Special case: diff(expr, var)
             if (node.name === "diff") {
-                log(`Symbolic differentiation requested`);
-                const diffAst = differentiate(node.args[0], node.args[1].name);
+                log(`Algo: Symbolic differentiation requested`);
+                const diffAst = differentiate(node.args[0], node.args[1].name, trace);
                 return `d/d${node.args[1].name} = ${astToString(diffAst)}`;
             }
 
             // Symbolic simplification
             if (node.name === "simplify") {
-                log(`Symbolic simplification requested`);
-                const simplifiedAst = simplify(node.args[0]);
+                log(`Algo: Symbolic simplification requested`);
+                const simplifiedAst = simplify(node.args[0], trace);
                 return `Simplified: ${astToString(simplifiedAst)}`;
             }
 
             const args = node.args.map(arg => evaluate(arg, trace));
 
             // Linear Algebra
-            if (["det", "ref", "rref", "lu", "qr", "eig", "inv", "trans"].includes(node.name)) {
+            if (["det", "ref", "rref", "lu", "qr", "eig", "inv", "trans", "mul"].includes(node.name)) {
                 const M = args[0];
                 if (!(M instanceof Matrix)) throw new Error(`${node.name} requires a Matrix`);
-                log(`Computing ${node.name} for matrix`);
-                if (node.name === "det") return determinant(M.data);
-                if (node.name === "ref") return new Matrix(toREF(M.data));
-                if (node.name === "rref") return new Matrix(toRREF(M.data));
-                if (node.name === "inv") return new Matrix(inverse(M.data));
+                
+                if (node.name === "mul") {
+                    const M2 = args[1];
+                    if (!(M2 instanceof Matrix)) throw new Error("mul requires two matrices");
+                    return multiplyMatricesInternal(M, M2, trace);
+                }
+
+                log(`Algo: Computing ${node.name} for ${M.rows}x${M.cols} matrix`);
+                if (node.name === "det") return determinant(M.data, trace);
+                if (node.name === "ref") return new Matrix(toREF(M.data, trace));
+                if (node.name === "rref") return new Matrix(toRREF(M.data, trace));
+                if (node.name === "inv") return new Matrix(inverse(M.data, trace));
                 if (node.name === "trans") return new Matrix(transpose(M.data));
                 if (node.name === "lu") {
-                    const { L, U } = lu(M.data);
+                    const { L, U } = lu(M.data, trace);
                     return `L = ${L.toString()}, U = ${U.toString()}`;
                 }
                 if (node.name === "qr") {
-                    const { Q, R } = qr(M.data);
+                    const { Q, R } = qr(M.data, trace);
                     return `Q = ${Q.toString()}, R = ${R.toString()}`;
                 }
                 if (node.name === "eig") {
-                    const evals = eigenvalues(M.data);
-                    const evecs = getEigenvectors(M.data, evals);
+                    const evals = eigenvalues(M.data, 50, trace);
+                    const evecs = getEigenvectors(M.data, evals, trace);
                     return `Eigenvalues: [${evals.map(v => v.toFixed(4)).join(", ")}], Eigenvectors: ${evecs.toString()}`;
                 }
             }
@@ -356,13 +394,12 @@ function evaluate(node, trace = []) {
             if (node.name in ENV.funcs) {
                 const func = ENV.funcs[node.name];
                 log(`Calling user function ${node.name} with ${args[0]}`);
-                // Simple substitution for evaluation
-                const subbedBody = substitute(func.body, func.param, args[0]);
+                const subbedBody = substitute(func.body, func.param, args[0], trace);
                 return evaluate(subbedBody, trace);
             }
 
             // Built-in functions
-            const result = Un(args[0], node.name);
+            const result = Un(args[0], node.name, null, trace);
             log(`Function ${node.name}(${args[0]}) = ${result}`);
             return result;
         }
@@ -372,29 +409,37 @@ function evaluate(node, trace = []) {
 /**
  * Symbolic Differentiation Engine
  */
-function differentiate(node, variable) {
+function differentiate(node, variable, trace = []) {
+    const log = (msg) => trace.push(`Rule: ${msg}`);
+    
     switch (node.type) {
-        case "Number": return { type: "Number", value: 0 };
+        case "Number": 
+            log(`Constant Rule: d/d${variable}(${node.value}) = 0`);
+            return { type: "Number", value: 0 };
         case "Symbol":
-            return { type: "Number", value: node.name === variable ? 1 : 0 };
+            const res = node.name === variable ? 1 : 0;
+            log(`${node.name === variable ? 'Variable' : 'Constant'} Rule: d/d${variable}(${node.name}) = ${res}`);
+            return { type: "Number", value: res };
         case "Binary":
             if (node.op === "+") {
-                return { type: "Binary", op: "+", left: differentiate(node.left, variable), right: differentiate(node.right, variable) };
+                log(`Sum Rule: d/d${variable}(f + g) = f' + g'`);
+                return { type: "Binary", op: "+", left: differentiate(node.left, variable, trace), right: differentiate(node.right, variable, trace) };
             }
             if (node.op === "-") {
-                return { type: "Binary", op: "-", left: differentiate(node.left, variable), right: differentiate(node.right, variable) };
+                log(`Difference Rule: d/d${variable}(f - g) = f' - g'`);
+                return { type: "Binary", op: "-", left: differentiate(node.left, variable, trace), right: differentiate(node.right, variable, trace) };
             }
             if (node.op === "*") {
-                // Product Rule: (f*g)' = f'g + fg'
+                log(`Product Rule: d/d${variable}(fg) = f'g + fg'`);
                 return {
                     type: "Binary", op: "+",
-                    left: { type: "Binary", op: "*", left: differentiate(node.left, variable), right: node.right },
-                    right: { type: "Binary", op: "*", left: node.left, right: differentiate(node.right, variable) }
+                    left: { type: "Binary", op: "*", left: differentiate(node.left, variable, trace), right: node.right },
+                    right: { type: "Binary", op: "*", left: node.left, right: differentiate(node.right, variable, trace) }
                 };
             }
             if (node.op === "^" && node.right.type === "Number") {
-                // Power Rule: (x^n)' = n * x^(n-1)
                 const n = node.right.value;
+                log(`Power Rule: d/d${variable}(x^${n}) = ${n}x^${n-1}`);
                 return {
                     type: "Binary", op: "*",
                     left: { type: "Number", value: n },
@@ -406,40 +451,122 @@ function differentiate(node, variable) {
     return { type: "Symbol", name: `diff(${astToString(node)}, ${variable})` };
 }
 
-function substitute(node, param, value) {
+function substitute(node, param, value, trace = []) {
     if (node.type === "Symbol" && node.name === param) {
         return { type: "Number", value: value };
     }
     if (node.type === "Binary") {
-        return { ...node, left: substitute(node.left, param, value), right: substitute(node.right, param, value) };
+        return { ...node, left: substitute(node.left, param, value, trace), right: substitute(node.right, param, value, trace) };
     }
     if (node.type === "Unary") {
-        return { ...node, value: substitute(node.value, param, value) };
+        return { ...node, value: substitute(node.value, param, value, trace) };
     }
     if (node.type === "Call") {
-        return { ...node, args: node.args.map(arg => substitute(arg, param, value)) };
+        return { ...node, args: node.args.map(arg => substitute(arg, param, value, trace)) };
     }
     return node;
 }
 
 /**
+ * Symbolic Simplification Engine
+ */
+function simplify(node, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
+    
+    if (node.type === "Number" || node.type === "Symbol") return node;
+    
+    if (node.type === "Binary") {
+        let L = simplify(node.left, trace);
+        let R = simplify(node.right, trace);
+        
+        // Constant Folding
+        if (L.type === "Number" && R.type === "Number" && typeof L.value === "number" && typeof R.value === "number") {
+            const res = Un(L.value, node.op, R.value);
+            log(`Constant Folding: ${L.value} ${node.op} ${R.value} = ${res}`);
+            return { type: "Number", value: res };
+        }
+        
+        // Identity Rules
+        if (node.op === "+") {
+            if (L.type === "Number" && L.value === 0) {
+                log(`Additive Identity: 0 + ${astToString(R)} = ${astToString(R)}`);
+                return R;
+            }
+            if (R.type === "Number" && R.value === 0) {
+                log(`Additive Identity: ${astToString(L)} + 0 = ${astToString(L)}`);
+                return L;
+            }
+            if (astToString(L) === astToString(R)) {
+                log(`Combine terms: ${astToString(L)} + ${astToString(R)} = 2 * ${astToString(L)}`);
+                return simplify({ type: "Binary", op: "*", left: { type: "Number", value: 2 }, right: L }, trace);
+            }
+        }
+        
+        if (node.op === "*") {
+            if (L.type === "Number" && L.value === 0) {
+                log(`Zero Property: 0 * ${astToString(R)} = 0`);
+                return { type: "Number", value: 0 };
+            }
+            if (R.type === "Number" && R.value === 0) {
+                log(`Zero Property: ${astToString(L)} * 0 = 0`);
+                return { type: "Number", value: 0 };
+            }
+            if (L.type === "Number" && L.value === 1) {
+                log(`Multiplicative Identity: 1 * ${astToString(R)} = ${astToString(R)}`);
+                return R;
+            }
+            if (R.type === "Number" && R.value === 1) {
+                log(`Multiplicative Identity: ${astToString(L)} * 1 = ${astToString(L)}`);
+                return L;
+            }
+        }
+
+        return { ...node, left: L, right: R };
+    }
+    
+    if (node.type === "Unary") {
+        const val = simplify(node.value, trace);
+        if (val.type === "Number") {
+            log(`Unary simplification: -${val.value} = ${-val.value}`);
+            return { type: "Number", value: -val.value };
+        }
+        return { ...node, value: val };
+    }
+
+    if (node.type === "Call") {
+        return { ...node, args: node.args.map(arg => simplify(arg, trace)) };
+    }
+
+    return node;
+}
+
+
+
+/**
  * Linear Algebra Algorithms
  */
-function determinant(matrix) {
+function determinant(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const rows = matrix.length;
     const cols = matrix[0].length;
 
     // Pseudo-determinant for non-square matrices
     if (rows !== cols) {
+        log(`Pseudo-determinant for non-square matrix`);
         const AT = transpose(matrix);
+        const mAT = new Matrix(AT);
+        const mOriginal = new Matrix(matrix);
+        
         if (rows > cols) {
             // det(AT * A)^0.5
-            const ATA = Un(new Matrix(AT), "*", new Matrix(matrix)).data;
-            return Math.sqrt(determinant(ATA));
+            log(`Step: Using Gram matrix AT * A`);
+            const ATA = multiplyMatricesInternal(mAT, mOriginal, trace).data;
+            return Math.sqrt(determinant(ATA, trace));
         } else {
             // det(A * AT)^0.5
-            const AAT = Un(new Matrix(matrix), "*", new Matrix(AT)).data;
-            return Math.sqrt(determinant(AAT));
+            log(`Step: Using Gram matrix A * AT`);
+            const AAT = multiplyMatricesInternal(mOriginal, mAT, trace).data;
+            return Math.sqrt(determinant(AAT, trace));
         }
     }
 
@@ -449,14 +576,20 @@ function determinant(matrix) {
     for (let i = 0; i < n; i++) {
         let pivot = i;
         while (pivot < n && m[pivot][i] === 0) pivot++;
-        if (pivot === n) return 0;
+        if (pivot === n) {
+            log(`Pivot column ${i} is zero, determinant is 0`);
+            return 0;
+        }
         if (pivot !== i) {
+            log(`Pivot: Swapping row ${i} with ${pivot}`);
             [m[i], m[pivot]] = [m[pivot], m[i]];
             det *= -1;
         }
+        log(`Pivot: Diagonal element ${m[i][i].toFixed(2)} at (${i},${i})`);
         det *= m[i][i];
         for (let j = i + 1; j < n; j++) {
             const factor = m[j][i] / m[i][i];
+            log(`Step: Eliminating row ${j} using factor ${factor.toFixed(2)}`);
             for (let k = i + 1; k < n; k++) m[j][k] -= factor * m[i][k];
         }
     }
@@ -465,7 +598,8 @@ function determinant(matrix) {
 
 const EPSILON = 1e-10;
 
-function toREF(matrix) {
+function toREF(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const m = matrix.map(r => [...r]);
     const rows = m.length;
     const cols = m[0].length;
@@ -473,10 +607,18 @@ function toREF(matrix) {
     for (let j = 0; j < cols && pivotRow < rows; j++) {
         let sel = pivotRow;
         while (sel < rows && Math.abs(m[sel][j]) < EPSILON) sel++;
-        if (sel === rows) continue;
-        [m[sel], m[pivotRow]] = [m[pivotRow], m[sel]];
+        if (sel === rows) {
+            log(`Step: Column ${j} is already zero below pivot`);
+            continue;
+        }
+        if (sel !== pivotRow) {
+            log(`Pivot: Swapping row ${pivotRow} with ${sel}`);
+            [m[sel], m[pivotRow]] = [m[pivotRow], m[sel]];
+        }
+        log(`Pivot: Row ${pivotRow}, Col ${j} selected`);
         for (let i = pivotRow + 1; i < rows; i++) {
             const factor = m[i][j] / m[pivotRow][j];
+            log(`Step: Eliminating element at (${i},${j})`);
             m[i][j] = 0;
             for (let k = j + 1; k < cols; k++) m[i][k] -= factor * m[pivotRow][k];
         }
@@ -485,18 +627,22 @@ function toREF(matrix) {
     return m;
 }
 
-function toRREF(matrix) {
-    const m = toREF(matrix);
+function toRREF(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
+    const m = toREF(matrix, trace);
     const rows = m.length;
     const cols = m[0].length;
+    log(`Algo: Starting backward elimination for RREF`);
     for (let i = rows - 1; i >= 0; i--) {
         let pivotCol = 0;
         while (pivotCol < cols && Math.abs(m[i][pivotCol]) < EPSILON) pivotCol++;
         if (pivotCol === cols) continue;
         const factor = m[i][pivotCol];
+        log(`Step: Normalizing row ${i} by ${factor.toFixed(2)}`);
         for (let j = pivotCol; j < cols; j++) m[i][j] /= factor;
         for (let k = 0; k < i; k++) {
             const f = m[k][pivotCol];
+            log(`Step: Zeroing out element above pivot at (${k},${pivotCol})`);
             for (let j = pivotCol; j < cols; j++) m[k][j] -= f * m[i][j];
         }
     }
@@ -507,11 +653,12 @@ function transpose(m) {
     return m[0].map((_, i) => m.map(row => row[i]));
 }
 
-function inverse(matrix) {
+function inverse(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const n = matrix.length;
     if (n !== matrix[0].length) throw new Error("Inverse only exists for square matrices");
     
-    // Create augmented matrix [A | I]
+    log(`Algo: Forming augmented matrix [A|I]`);
     const I = identity(n);
     const augmented = matrix.map((row, i) => [...row, ...I[i]]);
     
@@ -523,16 +670,21 @@ function inverse(matrix) {
         if (pivot === n) throw new Error("Matrix is singular (non-invertible)");
         
         // Swap rows
-        [augmented[i], augmented[pivot]] = [augmented[pivot], augmented[i]];
+        if (pivot !== i) {
+            log(`Pivot: Swapping row ${i} with ${pivot}`);
+            [augmented[i], augmented[pivot]] = [augmented[pivot], augmented[i]];
+        }
         
         // Scale pivot row
         const divisor = augmented[i][i];
+        log(`Step: Scaling row ${i} by ${divisor.toFixed(2)}`);
         for (let j = i; j < 2 * n; j++) augmented[i][j] /= divisor;
         
         // Eliminate other rows
         for (let k = 0; k < n; k++) {
             if (k !== i) {
                 const factor = augmented[k][i];
+                log(`Step: Eliminating element at (${k},${i})`);
                 for (let j = i; j < 2 * n; j++) {
                     augmented[k][j] -= factor * augmented[i][j];
                 }
@@ -544,14 +696,17 @@ function inverse(matrix) {
     return augmented.map(row => row.slice(n));
 }
 
-function lu(matrix) {
+function lu(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const n = matrix.length;
     if (n !== matrix[0].length) throw new Error("LU requires a square matrix");
     const L = Array(n).fill(0).map((_, i) => Array(n).fill(0).map((_, j) => i === j ? 1 : 0));
     const U = matrix.map(r => [...r]);
+    log(`Algo: Starting Doolittle algorithm for LU factorization`);
     for (let i = 0; i < n; i++) {
         for (let j = i + 1; j < n; j++) {
             const factor = U[j][i] / U[i][i];
+            log(`Step: Factor at (${j},${i}) = ${factor.toFixed(2)}`);
             L[j][i] = factor;
             for (let k = i; k < n; k++) U[j][k] -= factor * U[i][k];
         }
@@ -559,21 +714,24 @@ function lu(matrix) {
     return { L: new Matrix(L), U: new Matrix(U) };
 }
 
-function qr(matrix) {
+function qr(matrix, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const rows = matrix.length;
     const cols = matrix[0].length;
     const A = matrix.map(r => [...r]);
     const Q = Array(rows).fill(0).map(() => Array(cols).fill(0));
     const R = Array(cols).fill(0).map(() => Array(cols).fill(0));
 
-    // Gram-Schmidt
+    log(`Algo: Starting Gram-Schmidt process for QR`);
     for (let j = 0; j < cols; j++) {
         let v = A.map(row => row[j]);
         for (let i = 0; i < j; i++) {
             R[i][j] = Q.map(row => row[i]).reduce((acc, q_ik, k) => acc + q_ik * v[k], 0);
+            log(`Step: Projecting column ${j} onto ${i}, R[${i}][${j}] = ${R[i][j].toFixed(2)}`);
             v = v.map((vk, k) => vk - R[i][j] * Q[k][i]);
         }
         R[j][j] = Math.sqrt(v.reduce((acc, vk) => acc + vk * vk, 0));
+        log(`Step: Normalizing vector, R[${j}][${j}] = ${R[j][j].toFixed(2)}`);
         if (R[j][j] === 0) {
             for (let k = 0; k < rows; k++) Q[k][j] = 0;
         } else {
@@ -587,23 +745,35 @@ function identity(n) {
     return Array(n).fill(0).map((_, i) => Array(n).fill(0).map((_, j) => i === j ? 1 : 0));
 }
 
-function eigenvalues(matrix, iterations = 100) {
+function eigenvalues(matrix, iterations = 100, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
+    log(`Algo: Computing Eigenvalues via QR Algorithm (${iterations} iterations)`);
     let A = matrix.map(r => [...r]);
     const n = A.length;
     for (let i = 0; i < iterations; i++) {
-        const { Q, R } = qr(A);
-        A = Un(R, "*", Q).data;
+        const { Q, R } = qr(A, []); // Don't spam inner QR trace
+        // Only log multiplication details for the first iteration to avoid trace bloat
+        const iterTrace = (i === 0) ? trace : [];
+        A = multiplyMatricesInternal(R, Q, iterTrace).data;
+        if (i % 20 === 0) {
+            log(`Step: Iteration ${i}, current diagonals: [${A.map((r, idx) => r[idx].toFixed(2)).join(", ")}]`);
+        }
     }
-    return A.map((r, i) => r[i]);
+    const results = A.map((r, i) => r[i]);
+    log(`Step: Final Eigenvalues: [${results.map(v => v.toFixed(4)).join(", ")}]`);
+    return results;
 }
 
-function getEigenvectors(matrix, evals) {
+function getEigenvectors(matrix, evals, trace = []) {
+    const log = (msg) => trace.push(`Step: ${msg}`);
     const n = matrix.length;
     const vectors = [];
+    log(`Algo: Computing Eigenvectors by solving (A - λI)x = 0`);
     for (const lambda of evals) {
+        log(`Step: Solving for λ = ${lambda.toFixed(4)}`);
         // Solve (A - lambda*I)x = 0
         const m = matrix.map((r, i) => r.map((v, j) => i === j ? v - lambda : v));
-        const rref = toRREF(m);
+        const rref = toRREF(m, []); // Don't spam inner RREF trace
         // Extract basic nullspace vector (simplified for 1 vector)
         const vec = Array(n).fill(0);
         let found = false;
@@ -624,57 +794,18 @@ function getEigenvectors(matrix, evals) {
     return new Matrix(transpose(vectors));
 }
 
-/**
- * Symbolic Simplification Engine
- */
-function simplify(node) {
-    if (node.type === "Number" || node.type === "Symbol") return node;
-    
-    if (node.type === "Binary") {
-        let L = simplify(node.left);
-        let R = simplify(node.right);
-        
-        // Constant Folding
-        if (L.type === "Number" && R.type === "Number" && typeof L.value === "number" && typeof R.value === "number") {
-            return { type: "Number", value: Un(L.value, node.op, R.value) };
-        }
-        
-        // Identity Rules
-        if (node.op === "+") {
-            if (L.type === "Number" && L.value === 0) return R;
-            if (R.type === "Number" && R.value === 0) return L;
-            if (astToString(L) === astToString(R)) {
-                return simplify({ type: "Binary", op: "*", left: { type: "Number", value: 2 }, right: L });
-            }
-        }
-        
-        if (node.op === "*") {
-            if (L.type === "Number" && L.value === 0) return { type: "Number", value: 0 };
-            if (R.type === "Number" && R.value === 0) return { type: "Number", value: 0 };
-            if (L.type === "Number" && L.value === 1) return R;
-            if (R.type === "Number" && R.value === 1) return L;
-        }
 
-        return { ...node, left: L, right: R };
-    }
-    
-    if (node.type === "Unary") {
-        const val = simplify(node.value);
-        if (val.type === "Number") return { type: "Number", value: -val.value };
-        return { ...node, value: val };
-    }
 
-    if (node.type === "Call") {
-        return { ...node, args: node.args.map(simplify) };
-    }
-
-    return node;
-}
+const PRECEDENCE = {
+    "+": 1, "-": 1,
+    "*": 2, "/": 2,
+    "^": 3
+};
 
 /**
  * LaTeX Output Generation
  */
-function astToLaTeX(node) {
+function astToLaTeX(node, parentOp = null) {
     if (node.type === "Number") {
         if (node.value instanceof Matrix) {
             return "\\begin{pmatrix}" + node.value.data.map(row => row.join(" & ")).join(" \\\\ ") + "\\end{pmatrix}";
@@ -690,23 +821,37 @@ function astToLaTeX(node) {
         return node.name;
     }
     if (node.type === "Binary") {
-        const L = astToLaTeX(node.left);
-        const R = astToLaTeX(node.right);
+        const currentPrec = PRECEDENCE[node.op] || 0;
+        const parentPrec = PRECEDENCE[parentOp] || 0;
+        
+        let L = astToLaTeX(node.left, node.op);
+        let R = astToLaTeX(node.right, node.op);
+        
+        let res = "";
         switch (node.op) {
-            case "+": return `${L} + ${R}`;
-            case "-": return `${L} - ${R}`;
-            case "*": return `${L} \\cdot ${R}`;
-            case "/": return `\\frac{${L}}{${R}}`;
-            case "^": return `{${L}}^{${R}}`;
+            case "+": res = `${L} + ${R}`; break;
+            case "-": res = `${L} - ${R}`; break;
+            case "*": res = `${L} \\cdot ${R}`; break;
+            case "/": res = `\\frac{${L}}{${R}}`; break;
+            case "^": res = `{${L}}^{${R}}`; break;
         }
+
+        if (parentPrec > currentPrec) {
+            return `\\left( ${res} \\right)`;
+        }
+        return res;
     }
     if (node.type === "Unary") {
-        return `-${astToLaTeX(node.value)}`;
+        return `-${astToLaTeX(node.value, "unary")}`;
     }
     if (node.type === "Call") {
-        const args = node.args.map(astToLaTeX).join(", ");
+        const args = node.args.map(arg => astToLaTeX(arg)).join(", ");
         if (node.name === "sqrt") return `\\sqrt{${args}}`;
-        if (node.name === "diff") return `\\frac{d}{d${args.split(",")[1]}} \\left( ${args.split(",")[0]} \\right)`;
+        if (node.name === "diff") {
+            const expr = astToLaTeX(node.args[0]);
+            const variable = astToLaTeX(node.args[1]);
+            return `\\frac{d}{d${variable}} \\left( ${expr} \\right)`;
+        }
         return `\\operatorname{${node.name}}\\left( ${args} \\right)`;
     }
     if (node.type === "Assign") {
@@ -745,37 +890,29 @@ function calculate(expr) {
         } else if (typeof result === "string") {
             let str = result;
             
-            // 1. Identify multiple results separated by ", "
-            // We split by comma-space only if not inside brackets
+            // Split multiple results (e.g., "L = ..., U = ...")
+            // This split ensures we don't break inside matrix brackets
             const parts = str.split(/,\s(?=[A-Z][a-z]*\s*[:=]|\s*[A-Z]\s*[:=])/);
             
             const processedParts = parts.map(part => {
-                let p = part;
+                let p = part.trim();
                 
-                // If the part is purely text (like "Function f defined"), wrap it entirely in \text{}
-                // to avoid math italic spacing issues.
-                if (/^[a-zA-Z\s]+$/.test(p.trim())) {
-                    return `\\text{${p.trim()}}`;
+                // 1. Wrap pure text in \text{}
+                if (/^[a-zA-Z\s]+$/.test(p)) {
+                    return `\\text{${p}}`;
                 }
 
-                // Handle Labels like "Q =", "Eigenvalues:", "Eigenvectors:"
-                // We wrap them in \text{}
-                p = p.replace(/([a-zA-Z\s]+)([:=])\s*/g, "\\text{$1$2} ");
+                // 2. Identify and wrap labels (e.g., "L =", "Eigenvalues:")
+                p = p.replace(/^([a-zA-Z\s]+)([:=])\s*/g, "\\text{$1$2} ");
                 
-                // Handle Matrices
-                // We identify [[ ... ]] as pmatrix
-                // We do the transformation in a specific order
+                // 3. Convert Matrix string [[a,b],[c,d]] to pmatrix
                 if (p.includes("[[")) {
-                    p = p.replace(/\[\[/g, "\\begin{pmatrix}");
-                    p = p.replace(/\]\]/g, "\\end{pmatrix}");
-                    p = p.replace(/\],\s*\[/g, " \\\\ ");
-                    
-                    // Only replace commas that are BETWEEN \begin{pmatrix} and \end{pmatrix}
-                    // and are NOT inside another label or structure.
-                    // A simple way is to replace commas that are NOT followed by a space and "text"
-                    // but wait, matrix elements are just numbers/symbols.
-                    // So we replace commas that are NOT inside \text{}
-                    p = p.replace(/,\s*(?![^\{]*\})/g, " & ");
+                    // Pre-process: remove outer matrix brackets if they exist after label
+                    // "L = [[...]]" -> "L = [...], [...]"
+                    p = p.replace(/\[\s*\[/g, "\\begin{pmatrix} ");
+                    p = p.replace(/\]\s*\]/g, " \\end{pmatrix}");
+                    p = p.replace(/\]\s*,\s*\[/g, " \\\\ ");
+                    p = p.replace(/,\s*/g, " & ");
                 }
                 
                 return p;
