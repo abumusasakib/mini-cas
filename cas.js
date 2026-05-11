@@ -22,7 +22,7 @@ class Matrix {
     get rows() { return this.data.length; }
     get cols() { return this.data[0].length; }
     toString() {
-        return `[${this.data.map(row => `[${row.join(", ")}]`).join(", ")}]`;
+        return `[${this.data.map(row => `[${row.map(v => typeof v === 'number' ? Math.round(v * 10000) / 10000 : v).join(", ")}]`).join(", ")}]`;
     }
 }
 

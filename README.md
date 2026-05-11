@@ -18,21 +18,34 @@ A lightweight, powerful **Computer Algebra System (CAS)** engine and interactive
 ## 🚀 Quick Start
 
 1. **Clone the repo**:
+
    ```bash
    git clone https://github.com/your-username/mini-cas.git
    ```
-2. **Open `index.html`**: Simply open the file in any modern browser to start calculating.
+
+2. **Run locally**:
+   You can simply open `index.html` in any modern browser, or use a local development server:
+
+   ```bash
+   # Option 1: Using the npm script
+   npm run serve
+
+   # Option 2: Using npx directly (port 8084, no-cache)
+   npx http-server . -p 8084 -c-1
+   ```
 
 ## 🧪 Testing
 
 The project utilizes a dual-layer testing strategy:
 
-1.  **Jest Unit Tests**: Validates the core CAS engine, symbolic math, and linear algebra algorithms.
+1. **Jest Unit Tests**: Validates the core CAS engine, symbolic math, and linear algebra algorithms.
+
     ```bash
     npm test
     ```
 
-2.  **Playwright E2E Tests**: Validates the full user journey, UI layout stability, and KaTeX rendering correctness.
+2. **Playwright E2E Tests**: Validates the full user journey, UI layout stability, and KaTeX rendering correctness.
+
     ```bash
     npm run test:ui
     ```
@@ -41,11 +54,11 @@ The project utilizes a dual-layer testing strategy:
 
 The system follows a classic compiler-inspired pipeline:
 
-1.  **Tokenizer**: Converts raw text into tokens, inserting implicit `*` operators where needed.
-2.  **Parser**: A recursive descent parser that builds an AST while respecting operator precedence.
-3.  **Evaluator**: Traverses the AST to compute results, recording "Reasoning Trace" logs along the way.
-4.  **Dispatcher (`Un`)**: The core math kernel that handles polymorphism (e.g., adding two numbers vs. adding two complex objects).
-5.  **LaTeX Engine**: Recursively converts the AST into KaTeX-compatible math notation for high-fidelity rendering.
+1. **Tokenizer**: Converts raw text into tokens, inserting implicit `*` operators where needed.
+2. **Parser**: A recursive descent parser that builds an AST while respecting operator precedence.
+3. **Evaluator**: Traverses the AST to compute results, recording "Reasoning Trace" logs along the way.
+4. **Dispatcher (`Un`)**: The core math kernel that handles polymorphism (e.g., adding two numbers vs. adding two complex objects).
+5. **LaTeX Engine**: Recursively converts the AST into KaTeX-compatible math notation for high-fidelity rendering.
 
 ## 🧪 Examples
 
@@ -60,6 +73,7 @@ The system follows a classic compiler-inspired pipeline:
 | `det([[1,2],[3,4]])` | Matrix Determinant | `-2` |
 | `inv([[1,2],[3,4]])` | Matrix Inverse | `[[-2, 1], [1.5, -0.5]]` |
 | `trans([[1,2,3],[4,5,6]])` | Matrix Transpose | `[[1, 4], [2, 5], [3, 6]]` |
+| `[[1,2],[3,4]]^3` | Matrix Exponentiation | `[[37, 54], [81, 118]]` |
 | `rref([[1,2,3],[4,5,6]])` | Reduced Row Echelon Form | `[[1,0,-1],[0,1,2]]` |
 | `lu([[1,2],[3,4]])` | LU Factorization | `L=..., U=...` |
 | `qr([[1,2],[3,4]])` | QR Decomposition | `Q=..., R=...` |
