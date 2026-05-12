@@ -9,6 +9,7 @@
     <!-- KaTeX for math rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -38,6 +39,9 @@
                     <div class="example-chip" onclick="setInput('lu([[1,2],[3,4]])')">LU: lu(M)</div>
                     <div class="example-chip" onclick="setInput('qr([[1,2],[3,4]])')">QR: qr(M)</div>
                     <div class="example-chip" onclick="setInput('eig([[1,2],[3,4]])')">Eigen: eig(M)</div>
+                    <div class="example-chip" onclick="setInput('nullspace([[1,2,3],[4,5,6]])')">Basis: nullspace(M)</div>
+                    <div class="example-chip" onclick="setInput('colspace([[1,2,1],[2,4,2]])')">Basis: colspace(M)</div>
+                    <div class="example-chip" onclick="setInput('rank([[1,2],[3,4]])')">Rank: rank(M)</div>
                     <div class="example-chip" onclick="setInput('inv([[1,2],[3,4]])')">Inv: inv(M)</div>
                     <div class="example-chip" onclick="setInput('trans([[1,2,3],[4,5,6]])')">Trans: trans(M)</div>
                 </div>
@@ -59,6 +63,42 @@
                 </div>
             </section>
 
+            <section class="calculator-card visualizer-card">
+                <div class="trace-title" style="cursor: default; border-bottom: 1px solid var(--border); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    2D Linear Transformation Visualizer
+                </div>
+                
+                <div class="visualizer-layout">
+                    <div class="canvas-container">
+                        <canvas id="transformation-canvas" width="400" height="400"></canvas>
+                    </div>
+                    
+                    <div class="visualizer-controls">
+                        <div class="control-item">
+                            <label>Transformation Type</label>
+                            <select id="transform-type">
+                                <option value="scale" selected>Expansion / Contraction</option>
+                                <option value="shear_h">Horizontal Shear</option>
+                                <option value="shear_v">Vertical Shear</option>
+                                <option value="reflection">Reflection (Angle)</option>
+                                <option value="projection">Projection (Angle)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="control-item">
+                            <label id="param-label">Intensity: <span id="param-display">1.0</span></label>
+                            <input type="range" id="transform-slider" min="-5" max="5" step="0.1" value="1">
+                        </div>
+
+                        <div class="transform-matrix-box">
+                            <div class="result-label" style="margin-bottom: 0.5rem; font-size: 0.75rem;">Standard Matrix $T$</div>
+                            <div id="visualizer-matrix-display"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <section class="guide-section">
                 <h2 class="guide-title">Mathematical Engine Guide</h2>
                 
@@ -70,7 +110,7 @@
                         <ul>
                             <li><strong>Implicit Multiplication:</strong> Auto-detection of multiplication in terms like <code>2x</code> or <code>3(y+1)</code>.</li>
                             <li><strong>Complex Numbers:</strong> Native support for imaginary units (e.g., <code>3 + 4i</code>).</li>
-                            <li><strong>Simplification:</strong> Algebraic reduction of terms (e.g., <code>x + x + 0</code> becomes <code>2x</code>).</li>
+                            <li><strong>Simplification:</strong> Algebraic reduction of terms (e.g., $x + x + 0$ becomes $2x$).</li>
                         </ul>
                     </div>
 
@@ -79,7 +119,7 @@
                         <h3>Symbolic Calculus</h3>
                         <p>Mini CAS performs exact symbolic differentiation using recursive rule application:</p>
                         <ul>
-                            <li><strong>Power Rule:</strong> $\frac{d}{dx} x^n = n x^{n-1}$.</li>
+                            <li><strong>Power Rule:</strong> $\frac{d}{dx} x^n = nx^{n-1}$.</li>
                             <li><strong>Product Rule:</strong> $(fg)' = f'g + fg'$.</li>
                             <li><strong>Sum/Diff Rules:</strong> Linear application across additive terms.</li>
                         </ul>
@@ -88,11 +128,11 @@
                     <div class="guide-card">
                         <div class="guide-icon">⊞</div>
                         <h3>Linear Algebra</h3>
-                        <p>High-performance matrix decomposition and transformation algorithms:</p>
+                        <p>High-performance matrix decomposition and subspace analysis:</p>
                         <ul>
-                            <li><strong>LU Decomposition:</strong> Factors $A = LU$ for solving systems and computing determinants.</li>
-                            <li><strong>QR Decomposition:</strong> Gram-Schmidt process for orthogonalization ($A = QR$).</li>
-                            <li><strong>Eigenvalues:</strong> Computed via the iterative <strong>QR Algorithm</strong> for spectral analysis.</li>
+                            <li><strong>Fundamental Subspaces:</strong> Basis for <code>nullspace(A)</code>, <code>colspace(A)</code>, and <code>rowspace(A)</code>.</li>
+                            <li><strong>Decompositions:</strong> $A = LU$ and $A = QR$ factorizations.</li>
+                            <li><strong>Eigenvalues:</strong> Spectral analysis via iterative <strong>QR Algorithm</strong>.</li>
                         </ul>
                     </div>
                 </div>
@@ -106,7 +146,7 @@
         </footer>
     </div>
 
-    <script src="cas.js"></script>
-    <script src="app.js"></script>
+    <script defer src="cas.js?v=2"></script>
+    <script defer src="app.js?v=2"></script>
 </body>
 </html>

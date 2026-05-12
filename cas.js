@@ -14,7 +14,6 @@ class Complex {
         return `${this.re} ${sign} ${Math.abs(this.im)}i`;
     }
 }
-
 class Matrix {
     constructor(data) {
         this.data = data;
@@ -25,6 +24,106 @@ class Matrix {
         return `[${this.data.map(row => `[${row.map(v => typeof v === 'number' ? Math.round(v * 10000) / 10000 : v).join(", ")}]`).join(", ")}]`;
     }
 }
+
+const EPSILON = 1e-10;
+
+function rank(matrix, trace = []) {
+    const rref = toRREF(matrix, []);
+    let count = 0;
+    for (const row of rref) {
+        if (row.some(v => Math.abs(v) > EPSILON)) count++;
+    }
+    trace.push(`Step: Rank is the number of non-zero rows in RREF = ${count}`);
+    return count;
+}
+
+function rowspace(matrix, trace = []) {
+    const rref = toRREF(matrix, trace);
+    const basis = rref.filter(row => row.some(v => Math.abs(v) > EPSILON));
+    trace.push(`Step: Row space basis found from non-zero rows of RREF`);
+    return basis;
+}
+
+function colspace(matrix, trace = []) {
+    const rref = toRREF(matrix, trace);
+    const pivotCols = [];
+    for (let i = 0; i < rref.length; i++) {
+        let j = 0;
+        while (j < rref[0].length && Math.abs(rref[i][j]) < EPSILON) j++;
+        if (j < rref[0].length) pivotCols.push(j);
+    }
+    trace.push(`Step: Identified pivot columns at indices: ${pivotCols.join(", ")}`);
+    const basis = pivotCols.map(j => matrix.map(row => row[j]));
+    return transpose(basis);
+}
+
+function nullspace(matrix, trace = []) {
+    const rref = toRREF(matrix, trace);
+    const rows = rref.length;
+    const cols = rref[0].length;
+    const pivots = new Array(cols).fill(-1);
+    const pivotIndices = [];
+    
+    for (let i = 0; i < rows; i++) {
+        let j = 0;
+        while (j < cols && Math.abs(rref[i][j]) < EPSILON) j++;
+        if (j < cols) {
+            pivots[j] = i;
+            pivotIndices.push(j);
+        }
+    }
+    
+    const freeVars = [];
+    for (let j = 0; j < cols; j++) {
+        if (pivots[j] === -1) freeVars.push(j);
+    }
+    
+    trace.push(`Step: Free variables found at indices: ${freeVars.join(", ")}`);
+    
+    const basis = [];
+    for (const free of freeVars) {
+        const vec = new Array(cols).fill(0);
+        vec[free] = 1;
+        for (const pivotCol of pivotIndices) {
+            vec[pivotCol] = -rref[pivots[pivotCol]][free];
+        }
+        basis.push(vec);
+    }
+    
+    if (basis.length === 0) {
+        trace.push(`Step: Only trivial null space found (0 vector)`);
+        return [new Array(cols).fill(0)];
+    }
+    
+    return transpose(basis);
+}
+
+function getTransformationMatrix(type, val, trace = []) {
+    const t = type.toLowerCase();
+    const rad = (v) => v * Math.PI / 180;
+    
+    if (t === "projection") {
+        const a = rad(val);
+        const c = Math.cos(a), s = Math.sin(a);
+        return new Matrix([[c*c, c*s], [c*s, s*s]]);
+    }
+    if (t === "reflection") {
+        const a = rad(val);
+        const c = Math.cos(2*a), s = Math.sin(2*a);
+        return new Matrix([[c, s], [s, -c]]);
+    }
+    if (t === "shear_h") {
+        return new Matrix([[1, val], [0, 1]]);
+    }
+    if (t === "shear_v") {
+        return new Matrix([[1, 0], [val, 1]]);
+    }
+    if (t === "scale") {
+        return new Matrix([[val, 0], [0, val]]);
+    }
+    throw new Error(`Unknown transformation type: ${type}`);
+}
+
 
 function multiplyMatricesInternal(a, b, trace = []) {
     const log = (msg) => trace.push(`Step: ${msg}`);
@@ -358,10 +457,13 @@ function evaluate(node, trace = []) {
 
             const args = node.args.map(arg => evaluate(arg, trace));
 
-            // Linear Algebra
-            if (["det", "ref", "rref", "lu", "qr", "eig", "inv", "trans", "mul"].includes(node.name)) {
+            // Linear Algebra Routing
+            const laOps = ["det", "ref", "rref", "lu", "qr", "eig", "inv", "trans", "mul", "rank", "nullity", "rowspace", "colspace", "nullspace"];
+            if (laOps.includes(node.name)) {
                 const M = args[0];
                 if (!(M instanceof Matrix)) throw new Error(`${node.name} requires a Matrix`);
+                
+                log(`Trace: Routing LA op ${node.name}`);
                 
                 if (node.name === "mul") {
                     const M2 = args[1];
@@ -369,12 +471,16 @@ function evaluate(node, trace = []) {
                     return multiplyMatricesInternal(M, M2, trace);
                 }
 
-                log(`Algo: Computing ${node.name} for ${M.rows}x${M.cols} matrix`);
                 if (node.name === "det") return determinant(M.data, trace);
                 if (node.name === "ref") return new Matrix(toREF(M.data, trace));
                 if (node.name === "rref") return new Matrix(toRREF(M.data, trace));
                 if (node.name === "inv") return new Matrix(inverse(M.data, trace));
                 if (node.name === "trans") return new Matrix(transpose(M.data));
+                if (node.name === "rank") return rank(M.data, trace);
+                if (node.name === "nullity") return M.cols - rank(M.data, trace);
+                if (node.name === "rowspace") return new Matrix(rowspace(M.data, trace));
+                if (node.name === "colspace") return new Matrix(colspace(M.data, trace));
+                if (node.name === "nullspace") return new Matrix(nullspace(M.data, trace));
                 if (node.name === "lu") {
                     const { L, U } = lu(M.data, trace);
                     return `L = ${L.toString()}, U = ${U.toString()}`;
@@ -388,6 +494,13 @@ function evaluate(node, trace = []) {
                     const evecs = getEigenvectors(M.data, evals, trace);
                     return `Eigenvalues: [${evals.map(v => v.toFixed(4)).join(", ")}], Eigenvectors: ${evecs.toString()}`;
                 }
+            }
+
+            if (node.name === "transform") {
+                const type = args[0];
+                const val = args[1] || 0;
+                log(`Algo: Generating transformation matrix for ${type}`);
+                return getTransformationMatrix(type, val, trace);
             }
 
             // User defined functions
@@ -596,7 +709,6 @@ function determinant(matrix, trace = []) {
     return det;
 }
 
-const EPSILON = 1e-10;
 
 function toREF(matrix, trace = []) {
     const log = (msg) => trace.push(`Step: ${msg}`);
@@ -931,3 +1043,4 @@ function calculate(expr) {
 if (typeof module !== "undefined") {
     module.exports = { calculate, Complex, Matrix, ENV, astToLaTeX };
 }
+
