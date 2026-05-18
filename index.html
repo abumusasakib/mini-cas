@@ -44,6 +44,21 @@
                     <div class="example-chip" onclick="setInput('rank([[1,2],[3,4]])')">Rank: rank(M)</div>
                     <div class="example-chip" onclick="setInput('inv([[1,2],[3,4]])')">Inv: inv(M)</div>
                     <div class="example-chip" onclick="setInput('trans([[1,2,3],[4,5,6]])')">Trans: trans(M)</div>
+                    <div class="example-chip" onclick="setInput('norm([3,4])')">Norm: norm([3,4])</div>
+                    <div class="example-chip" onclick="setInput('unit([3,4])')">Unit: unit([3,4])</div>
+                    <div class="example-chip" onclick="setInput('dot([1,2],[3,4])')">Dot: dot(u, v)</div>
+                    <div class="example-chip" onclick="setInput('cross([1,0,0],[0,1,0])')">Cross: cross(u, v)</div>
+                    <div class="example-chip" onclick="setInput('angle([1,0],[0,1])')">Angle: angle(u, v)</div>
+                    <div class="example-chip" onclick="setInput('angle([1,0],[0,1], deg)')">Angle Deg: angle(u, v, deg)</div>
+                    <div class="example-chip" onclick="setInput('normal_eq([[1, 1], [1, 2], [1, 3]], [[1], [3], [3]])')">Normal Eq: normal_eq(X, y)</div>
+                    <div class="example-chip" onclick="setInput('sigmoid([[0, 2]])')">Sigmoid: sigmoid(M)</div>
+                    <div class="example-chip" onclick="setInput('softmax([[1, 2, 3]])')">Softmax: softmax(M)</div>
+                    <div class="example-chip" onclick="setInput('minmax_scale([[10], [20], [30]])')">Scale: minmax(X)</div>
+                    <div class="example-chip" onclick="setInput('zscore_scale([[10], [20], [30]])')">Scale: zscore(X)</div>
+                    <div class="example-chip" onclick="setInput('regression_metrics([[2], [4]], [[1], [5]])')">Metrics: reg_metrics</div>
+                    <div class="example-chip" onclick="setInput('confusion_matrix([[0.9], [0.1], [0.8], [0.2]], [[1], [0], [1], [1]])')">ML: confusion_matrix</div>
+                    <div class="example-chip" onclick="setInput('classification_metrics([[0.9], [0.1], [0.8], [0.2]], [[1], [0], [1], [1]])')">ML: clf_metrics</div>
+                    <div class="example-chip" onclick="setInput('gradient_descent([[1, 10], [1, 15]], [[15], [20]], [[5], [0.1]], 0.05, linear)')">GD Step: grad_descent</div>
                 </div>
 
                 <div id="result-container" class="result-section" style="display: none;">
@@ -87,12 +102,29 @@
                         </div>
                         
                         <div class="control-item">
-                            <label id="param-label">Intensity: <span id="param-display">1.0</span></label>
+                            <label id="param-label"><span id="param-name">Intensity</span><span id="param-display">1.0</span></label>
                             <input type="range" id="transform-slider" min="-5" max="5" step="0.1" value="1">
                         </div>
 
-                        <div class="transform-matrix-box">
-                            <div class="result-label" style="margin-bottom: 0.5rem; font-size: 0.75rem;">Standard Matrix $T$</div>
+                        <div class="control-item" style="margin-top: 0.5rem;">
+                            <button id="add-to-chain-btn" style="width: 100%; padding: 0.6rem 1rem; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(to right, var(--primary), var(--secondary)); border-radius: 10px; cursor: pointer; border: none; font-weight: 600; color: white;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                Add to Chain
+                            </button>
+                        </div>
+
+                        <div class="control-item" style="margin-top: 1rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <label style="margin: 0; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Active Chain (Composed $T = T_n \cdots T_1$)</label>
+                                <button id="clear-chain-btn" style="background: none; border: none; padding: 0; margin: 0; color: var(--accent); font-size: 0.75rem; cursor: pointer; text-decoration: underline; font-weight: 500;">Clear All</button>
+                            </div>
+                            <div id="transform-chain-container" style="background: rgba(15, 23, 42, 0.4); border: 1px solid var(--border); border-radius: 12px; padding: 0.75rem; min-height: 50px; max-height: 140px; overflow-y: auto; font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div id="chain-empty-message" style="color: var(--text-secondary); text-align: center; font-style: italic; padding: 0.5rem 0;">No active chain. Displaying current slider setting.</div>
+                            </div>
+                        </div>
+
+                        <div class="transform-matrix-box" style="margin-top: 1.5rem;">
+                            <div class="result-label" id="matrix-title-label" style="margin-bottom: 0.5rem; font-size: 0.75rem;">Standard Matrix $T$</div>
                             <div id="visualizer-matrix-display"></div>
                         </div>
                     </div>
@@ -135,6 +167,28 @@
                             <li><strong>Eigenvalues:</strong> Spectral analysis via iterative <strong>QR Algorithm</strong>.</li>
                         </ul>
                     </div>
+
+                    <div class="guide-card">
+                        <div class="guide-icon">↗</div>
+                        <h3>Vector Analysis</h3>
+                        <p>Advanced vector operations for space transformations and geometry:</p>
+                        <ul>
+                            <li><strong>Norm & Unit:</strong> Length calculation with <code>norm(u)</code> and normalization with <code>unit(u)</code>.</li>
+                            <li><strong>Products:</strong> Standard inner <code>dot(u, v)</code> and 3D vector <code>cross(u, v)</code>.</li>
+                            <li><strong>Angles:</strong> Computation of exact radian angles between vectors via <code>angle(u, v)</code>.</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-icon">🤖</div>
+                        <h3>Machine Learning Suite</h3>
+                        <p>Vectorized mathematical kernels for linear regression, classification, metrics, and scaling:</p>
+                        <ul>
+                            <li><strong>Linear Regression:</strong> Solve parameters analytically using the Normal Equation <code>normal_eq(X, y)</code>.</li>
+                            <li><strong>Gradient Descent:</strong> Single step optimization for linear or logistic regression <code>gradient_descent(X, y, w, alpha, type)</code>.</li>
+                            <li><strong>Metrics & Evaluation:</strong> Complete suite including <code>regression_metrics</code>, <code>confusion_matrix</code>, and <code>classification_metrics</code>.</li>
+                        </ul>
+                    </div>
                 </div>
             </section>
         </main>
@@ -146,7 +200,12 @@
         </footer>
     </div>
 
-    <script defer src="cas.js?v=2"></script>
-    <script defer src="app.js?v=2"></script>
+    <script defer src="math-objects.js?v=6"></script>
+    <script defer src="registry.js?v=6"></script>
+    <script defer src="la-algorithms.js?v=6"></script>
+    <script defer src="parser.js?v=6"></script>
+    <script defer src="evaluator.js?v=6"></script>
+    <script defer src="cas.js?v=6"></script>
+    <script defer src="app.js?v=6"></script>
 </body>
 </html>

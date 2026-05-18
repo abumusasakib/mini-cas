@@ -50,15 +50,95 @@ The project utilizes a dual-layer testing strategy:
     npm run test:ui
     ```
 
-## 🛠 Architecture Overview
+## 🛠️ Architecture & Modular Components
 
-The system follows a classic compiler-inspired pipeline:
+The CAS mathematical engine is modularized into **6 decoupled components** utilizing the **Registry Pattern** to ensure extreme maintainability, clean separation of concerns, and unified browser and Node/Jest testing execution:
 
-1. **Tokenizer**: Converts raw text into tokens, inserting implicit `*` operators where needed.
-2. **Parser**: A recursive descent parser that builds an AST while respecting operator precedence.
-3. **Evaluator**: Traverses the AST to compute results, recording "Reasoning Trace" logs along the way.
-4. **Dispatcher (`Un`)**: The core math kernel that handles polymorphism (e.g., adding two numbers vs. adding two complex objects).
-5. **LaTeX Engine**: Recursively converts the AST into KaTeX-compatible math notation for high-fidelity rendering.
+```
+                  ┌───────────────────────────────┐
+                  │            cas.js             │
+                  │   Orchestrator & Node Loader  │
+                  └───────┬───────────────┬───────┘
+                          │               │
+                          ▼               ▼
+                  ┌───────────────┐ ┌───────────────┐
+                  │   parser.js   │ │  evaluator.js │
+                  │ Token & Parse │ │ AST Evaluator │
+                  └───────┬───────┘ └───────┬───────┘
+                          │   ┌─────────────┘
+                          ▼   ▼
+                  ┌───────────────┐ ┌───────────────┐
+                  │  registry.js  │ │la-algorithms.js│
+                  │  Registries   │ │Matrix Kernels │
+                  └───────────────┘ └───────┬───────┘
+                                            │
+                                            ▼
+                                    ┌───────────────┐
+                                    │math-objects.js│
+                                    │Complex/Matrix │
+                                    └───────────────┘
+```
+
+### 1. [math-objects.js](math-objects.js)
+
+Declares the algebraic foundation classes:
+- `Complex` (Real and imaginary number support).
+- `Matrix` (Custom multi-dimensional matrix objects).
+- `transpose` helper and numerical precision constants (`EPSILON`).
+
+### 2. [registry.js](registry.js)
+
+Defines the base directory Registries that decouple the arities and operations from giant switches:
+- `OpRegistry` - Registers binary and unary mathematical symbols (e.g. `+`, `-`, `*`, `/`, `^`).
+- `FunctionRegistry` - Registers linear algebra and core functions (e.g. `det`, `eig`, `rref`, `sin`).
+- `LaTeXRegistry` - Registers AST-to-LaTeX converter rules dynamically.
+
+### 3. [la-algorithms.js](la-algorithms.js)
+
+Houses all mathematical linear algebra kernels:
+- Decompositions: Doolittle LU, Gram-Schmidt QR.
+- Row Reductions: Reduced Row Echelon Form (RREF), REF.
+- Subspaces: Row space, Column space, Null space, and Matrix rank.
+- Transforms: Projection, Shearing, Reflection, and Scalings.
+- Solvers: QR Eigenvalues and inverse solvers.
+- Vector Operations: Norm, normalization (unit vector), dot product, 3D cross product, and angle calculations.
+- Machine Learning Suite: Analytical least-squares Normal Equation solver, MinMax and Z-Score feature scaling, element-wise Sigmoid activation, Softmax regression activation, Binary Cross-Entropy (BCE) loss, single-step Gradient Descent (linear & logistic updates), and evaluation metrics (MAE, MSE, RMSE, R-squared, MAPE, Confusion Matrix, Accuracy, Precision, Recall, Specificity, F1-Score).
+
+
+### 4. [parser.js](parser.js)
+
+Encapsulates expression parsing:
+- `tokenize` & `insertImplicit` (for handling constructs like `2pi`).
+- `parse` (A recursive descent parser that builds an AST with correct operator precedence).
+- `astToString` serializer.
+
+### 5. [evaluator.js](parser.js)
+
+Executes AST traversal, registers all functions into the directories, and handles:
+- `evaluate` (using the unified `opRegistry` and `functionRegistry` dispatchers).
+- `simplify` (constant folding and term simplification rules).
+- `differentiate` (symbolic differentiation rules).
+
+### 6. [cas.js](cas.js)
+
+The high-level orchestrator:
+- Exposes `calculate(expr)` matching the original unified signature.
+- Resolves namespace binding for Node.js: automatically loads and binds sub-modules to Node's `global` context when required in Jest.
+
+---
+
+## 🧩 The Registry Pattern
+
+Instead of hardcoded case-switching, mathematical logic is dynamically looked up and executed via custom registries. Adding a new function is as simple as registering a handler:
+
+```javascript
+// Register a custom function
+functionRegistry.register("sin", (args) => Math.sin(args[0]));
+
+// Perform evaluation dispatch
+const handler = functionRegistry.get(node.name);
+if (handler) return handler(args, trace);
+```
 
 ## 🧪 Examples
 
@@ -78,6 +158,26 @@ The system follows a classic compiler-inspired pipeline:
 | `lu([[1,2],[3,4]])` | LU Factorization | `L=..., U=...` |
 | `qr([[1,2],[3,4]])` | QR Decomposition | `Q=..., R=...` |
 | `eig([[1,2],[3,4]])` | Eigenvalues/vectors | `Eigenvalues: [...], Eigenvectors: [...]` |
+| `norm([3,4])` | Vector Euclidean Norm | `5` |
+| `unit([3,4])` | Vector Normalization | `[[0.6, 0.8]]` |
+| `dot([1,2],[3,4])` | Dot Product | `11` |
+| `cross([1,0,0],[0,1,0])` | 3D Cross Product | `[[0, 0, 1]]` |
+| `angle([1,0],[0,1])` | Angle Between Vectors | `1.57079... (rad)` |
+| `angle([1,0],[0,1], deg)` | Angle Between Vectors (Degrees) | `90` |
+| `sin(90, deg)` | Trig Function in Degrees | `1` |
+| `transform(projection, 45, deg)` | Linear Transform in Degrees | `[[0.5, 0.5], [0.5, 0.5]]` |
+| `normal_eq([[1,1],[1,2],[1,3]], [[1],[3],[3]])` | Analytical linear regression Normal Equation | `[[0.3333], [1.0000]]` |
+| `sigmoid([[0,2]])` | Element-wise Sigmoid activation mapping | `[[0.5, 0.8808]]` |
+| `softmax([[1,2,3]])` | Row-wise Softmax probability normalization | `[[0.0900, 0.2447, 0.6652]]` |
+| `minmax_scale([[10],[20],[30]])` | Feature scaling using min-max mapping to [0,1] | `[[0], [0.5], [1]]` |
+| `zscore_scale([[10],[20],[30]])` | Feature scaling to zero-mean and unit-variance | `[[-1.2247], [0], [1.2247]]` |
+| `regression_metrics([[2],[4]], [[1],[5]])` | Regression quality MAE, MSE, RMSE, R-squared, MAPE | `MAE = 1.0000, MSE = 1.0000, RMSE = 1.0000, R2 = 0.7500, MAPE = 60.00%` |
+| `confusion_matrix([[0.9],[0.1],[0.8],[0.2]], [[1],[0],[1],[1]])` | Classification performance Confusion Matrix | `[[2, 1], [0, 1]]` |
+| `classification_metrics([[0.9],[0.1],[0.8],[0.2]], [[1],[0],[1],[1]])` | Accuracy, Precision, Recall, Specificity, F1-score | `Accuracy = 75.00%, Precision = 100.00%, Recall = 66.67%, Specificity = 100.00%, F1-Score = 80.00%` |
+| `gradient_descent([[1,100],[1,150]], [[15],[20]], [[5],[0.1]], 0.05, linear)` | Single-step vectorized gradient descent update | `[[5.0000], [0.1000]]` |
+| `binary_cross_entropy([[0.5],[0.5]], [[1],[0]])` | Binary Cross-Entropy log loss mapping | `0.6931...` |
+
+
 
 ## 🛠 Tech Stack
 

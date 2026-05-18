@@ -139,6 +139,11 @@ function initVisualizer() {
     const transformSlider = document.getElementById('transform-slider');
     const paramDisplay = document.getElementById('param-display');
     const matrixDisplay = document.getElementById('visualizer-matrix-display');
+    const addToChainBtn = document.getElementById('add-to-chain-btn');
+    const clearChainBtn = document.getElementById('clear-chain-btn');
+    const chainContainer = document.getElementById('transform-chain-container');
+
+    let transformChain = [];
 
     function drawGrid(matrix = [[1, 0], [0, 1]]) {
         const width = canvas.width;
@@ -188,8 +193,12 @@ function initVisualizer() {
         // Draw Axes
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); strokeAction();
+        ctx.beginPath(); ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); strokeAction();
+
+        function strokeAction() {
+            ctx.stroke();
+        }
 
         // Draw Basis Vectors
         const drawVector = (v, color, label) => {
@@ -220,9 +229,41 @@ function initVisualizer() {
     function updateVisualizer() {
         const type = transformType.value;
         const val = parseFloat(transformSlider.value);
-        paramDisplay.textContent = val.toFixed(1);
+        const paramName = document.getElementById('param-name');
         
-        const matrixObj = getTransformationMatrix(type, val);
+        let displayVal = val.toFixed(1);
+        if (['projection', 'reflection'].includes(type)) {
+            displayVal += '°';
+            if (paramName) paramName.textContent = "Angle";
+        } else {
+            if (paramName) paramName.textContent = "Intensity";
+        }
+        paramDisplay.textContent = displayVal;
+        
+        let matrixObj;
+        let matrixTitle = "Standard Matrix $T$";
+        
+        if (transformChain.length === 0) {
+            matrixObj = getTransformationMatrix(type, val);
+            matrixTitle = "Standard Matrix $T$";
+        } else {
+            // Right-to-left composition: T_composed = T_n * T_n-1 * ... * T_1
+            matrixObj = transformChain[0].matrix;
+            for (let i = 1; i < transformChain.length; i++) {
+                matrixObj = multiplyMatricesInternal(transformChain[i].matrix, matrixObj);
+            }
+            // Generate composed equation labels
+            const composedEquation = transformChain.map((_, idx) => `T_{${transformChain.length - idx}}`).join(" \\cdot ");
+            matrixTitle = `Composed Matrix $T = ${composedEquation}$`;
+        }
+        
+        const matrixTitleEl = document.getElementById('matrix-title-label');
+        if (matrixTitleEl) {
+            matrixTitleEl.innerHTML = matrixTitle;
+            if (window.renderMathInElement) {
+                renderMathInElement(matrixTitleEl, { delimiters: [{left: '$', right: '$', display: false}] });
+            }
+        }
         
         // Render Matrix in display using KaTeX
         matrixDisplay.innerHTML = `$$T = ${astToLaTeX({ type: 'Number', value: matrixObj })}$$`;
@@ -231,6 +272,89 @@ function initVisualizer() {
         }
         
         drawGrid(matrixObj.data);
+    }
+
+    function renderChainList() {
+        if (!chainContainer) return;
+        chainContainer.innerHTML = '';
+        
+        if (transformChain.length === 0) {
+            const emptyMsg = document.createElement('div');
+            emptyMsg.id = 'chain-empty-message';
+            emptyMsg.style.color = 'var(--text-secondary)';
+            emptyMsg.style.textAlign = 'center';
+            emptyMsg.style.fontStyle = 'italic';
+            emptyMsg.style.padding = '0.5rem 0';
+            emptyMsg.textContent = 'No active chain. Displaying current slider setting.';
+            chainContainer.appendChild(emptyMsg);
+            return;
+        }
+        
+        transformChain.forEach((item, index) => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.background = 'rgba(255, 255, 255, 0.05)';
+            row.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+            row.style.padding = '0.4rem 0.6rem';
+            row.style.borderRadius = '8px';
+            row.style.color = 'var(--text-primary)';
+            
+            const typeNames = {
+                scale: 'Scale',
+                shear_h: 'Shear H',
+                shear_v: 'Shear V',
+                reflection: 'Reflection',
+                projection: 'Projection'
+            };
+            
+            const displayName = typeNames[item.type] || item.type;
+            const displayVal = ['projection', 'reflection'].includes(item.type) ? `${item.value}°` : item.value.toFixed(1);
+            
+            row.innerHTML = `
+                <span><strong>$T_{${index + 1}}$: ${displayName}</strong> (${displayVal})</span>
+                <span class="remove-step-btn" style="color: var(--accent); cursor: pointer; font-weight: bold; font-size: 1.1rem; padding: 0 0.25rem;">&times;</span>
+            `;
+            
+            row.querySelector('.remove-step-btn').addEventListener('click', () => {
+                transformChain = transformChain.filter(x => x.id !== item.id);
+                renderChainList();
+                updateVisualizer();
+            });
+            
+            chainContainer.appendChild(row);
+        });
+
+        if (window.renderMathInElement) {
+            renderMathInElement(chainContainer, { delimiters: [{left: '$', right: '$', display: false}] });
+        }
+    }
+
+    if (addToChainBtn) {
+        addToChainBtn.addEventListener('click', () => {
+            const type = transformType.value;
+            const val = parseFloat(transformSlider.value);
+            const matrixObj = getTransformationMatrix(type, val);
+            
+            transformChain.push({
+                id: Math.random().toString(),
+                type,
+                value: val,
+                matrix: matrixObj
+            });
+            
+            renderChainList();
+            updateVisualizer();
+        });
+    }
+
+    if (clearChainBtn) {
+        clearChainBtn.addEventListener('click', () => {
+            transformChain = [];
+            renderChainList();
+            updateVisualizer();
+        });
     }
 
     transformSlider.addEventListener('input', updateVisualizer);
